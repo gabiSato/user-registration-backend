@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 mongoose.Promise = global.Promise;
 
-mongoose.connect("mongodb://localhost:27017/user-registration", { useNewUrlParser: true })
+mongoose.connect("mongodb://localhost:27017/user-registration", { useUnifiedTopology: true, useNewUrlParser: true })
 
 mongoose.connection.on('connected', () => console.log('Conectado ao banco de dados'))
 
