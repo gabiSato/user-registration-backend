@@ -2,14 +2,17 @@ const mongosse = require("mongoose");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const jwtConfig = require("../../config/jwt");
+const aesjs = require("aes-js");
 
 const UserModel = mongosse.model("User");
 
 let userController = {};
 
 userController.newUser = (req, res) => {
-  if (req.body.username && req.body.password) {
-    UserModel.findOne({ username: req.body.username }).then(user => {
+  if (req.body.username && req.body.password && req.body.key) {
+    const { username, email, password } = decryptData(req.body)
+
+    UserModel.findOne({ username: username }).then(user => {
       if (user)
         res.json({
           success: false,
@@ -17,13 +20,13 @@ userController.newUser = (req, res) => {
         });
       else {
         bcrypt
-          .hash(req.body.password, 10)
+          .hash(password, 10)
           .then(hash => {
             let encryptedPassword = hash;
             let newUser = new UserModel({
-              username: req.body.username,
+              username: username.toLowerCase(),
               password: encryptedPassword,
-              email: req.body.email,
+              email: email
             });
 
             newUser
@@ -59,43 +62,58 @@ userController.newUser = (req, res) => {
 };
 
 userController.signIn = (req, res) => {
-  const { password, username } = req.body;
+  const { password, username } = decryptData(req.body);
   const query = [];
 
-  if (username) query.push({ username: username.toLowerCase() })
+  if (username) query.push({ username: username.toLowerCase() });
 
-  UserModel.findOne({ $or: query })
-    .then(async user => {
-      if (!user) res.json({
+  UserModel.findOne({ $or: query }).then(async user => {
+    if (!user)
+      res.json({
         success: false,
         message: "User not found",
         statusCode: 400
-      })
-      else {
-        // const result = await user.authenticate(password);
-        const result = bcrypt.compare(password, user.password)
-        if (!result) res.json({
+      });
+    else {
+      // const result = await user.authenticate(password);
+      const result = bcrypt.compare(password, user.password);
+      if (!result)
+        res.json({
           success: false,
           message: "Wrong password",
           statusCode: 400
-        })
-        else {
-          const token = jwt.sign({ user }, jwtConfig.secret);
-          res.json({
-            success: true,
-            data: {
-              user: {
-                id: user._id,
-                username: user.username,
-                email: user.email
-              },
-              token
+        });
+      else {
+        const token = jwt.sign({ user }, jwtConfig.secret);
+        res.json({
+          success: true,
+          data: {
+            user: {
+              id: user._id,
+              username: user.username,
+              email: user.email
             },
-            statusCode: 200
-          })
-        }
+            token
+          },
+          statusCode: 200
+        });
       }
-    })
-}
+    }
+  });
+};
 
+decryptData = data => {
+  const aesCtr = new aesjs.ModeOfOperation.ctr(data.key);
+  const decryptedData = {};
+
+  for (const [name, value] of Object.entries(data)) {
+    if (name !== "key") {
+      const encryptedBytes = aesjs.utils.hex.toBytes(value);
+      const decryptedBytes = aesCtr.decrypt(encryptedBytes);
+      decryptedData[name] = aesjs.utils.utf8.fromBytes(decryptedBytes);
+    }
+  }
+
+  return { ...decryptedData }
+};
 module.exports = userController;
