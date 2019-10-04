@@ -1,5 +1,5 @@
 jwtConfig = {
-    'secret': 'secretkey'
+    'secret': 'absnfj28ndur49439asjgd'
 }
 
 module.exports = jwtConfig;

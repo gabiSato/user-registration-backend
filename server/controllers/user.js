@@ -12,7 +12,7 @@ userController.newUser = (req, res) => {
   if (req.body.username && req.body.password && req.body.key) {
     const { username, email, password } = decryptData(req.body)
 
-    UserModel.findOne({ username: username }).then(user => {
+    UserModel.findOne({ username: username.toLowerCase() }).then(user => {
       if (user)
         res.json({
           success: false,
@@ -75,7 +75,6 @@ userController.signIn = (req, res) => {
         statusCode: 400
       });
     else {
-      // const result = await user.authenticate(password);
       const result = bcrypt.compare(password, user.password);
       if (!result)
         res.json({
